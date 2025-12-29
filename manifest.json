@@ -94,7 +94,6 @@
       "js/unionIberica/control_paginas.js",
       "js/unionIberica/control_alianza.js",
       "js/unionIberica/control_estadisticas.js",
-      //"js/unionIberica/extraerInfoPopUpJugadorAutomatico.js",
       "js/unionIberica/control.js",
       "js/unionIberica/main.js",
       "js/unionIberica/init.js"
