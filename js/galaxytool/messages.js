@@ -1335,7 +1335,8 @@ galaxytoolbar.GTPlugin_messages={
 		galaxytoolbar.GTPlugin_general.set_status(doc, "galaxyplugin"+1 , 0, "Procesando mensajes","All Galaxytools");
 		var messages = doc.getElementsByClassName("message-item");
 		galaxytoolbar.GTPlugin_general.set_status(doc, "galaxyplugin"+1 , 0, "Encontrados " + messages.length + " mensajes","All Galaxytools");
-		for (var i = 0; i < messages.length; i++) {
+		//for (var i = 0; i < messages.length; i++) {
+		for (var i = messages.length - 1; i >= 0; i--) {
 			//procesamos los reports de espionaje
 			if (messages[i].querySelector("div.message-content > div.spyRaport") !== null) {
 				galaxytoolbar.GTPlugin_messages.submit_pr0game_reports_data(doc,messages[i]);
