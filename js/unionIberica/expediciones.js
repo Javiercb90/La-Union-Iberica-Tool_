@@ -18,16 +18,13 @@
 
   const qs = new URLSearchParams(location.search);
   const page = (qs.get("page") || "").toLowerCase();
+  const category = qs.get("category"); // ✅ importante para filtrar expediciones
 
   // -------------------------
   // Utils
   // -------------------------
   const nowIso = () => new Date().toISOString();
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-  // 👇 Diagnóstico opcional (si quieres, deja solo el primero y borra el resto)
-  // console.log("[PEH] runtime.id =", EXT_CHROME?.runtime?.id);
-  // console.log("[PEH] storage.local =", EXT_CHROME?.storage?.local);
 
   function parseLocaleNumber(s) {
     if (!s) return NaN;
@@ -85,42 +82,42 @@
   }
 
   // ✅ storage wrappers: chrome.storage.local si existe; si no, localStorage JSON
-function storageGet(keys) {
-  return new Promise((resolve) => {
-    const local = globalThis.chrome?.storage?.local;
-    if (local) {
-      local.get(keys, resolve);
-      return;
-    }
+  function storageGet(keys) {
+    return new Promise((resolve) => {
+      const local = globalThis.chrome?.storage?.local;
+      if (local) {
+        local.get(keys, resolve);
+        return;
+      }
 
-    // --- fallback localStorage ---
-    const out = {};
-    const list = Array.isArray(keys) ? keys : [keys];
-    for (const k of list) {
-      const raw = localStorage.getItem(k);
-      try { out[k] = raw ? JSON.parse(raw) : undefined; }
-      catch { out[k] = raw; }
-    }
-    resolve(out);
-  });
-}
+      // --- fallback localStorage ---
+      const out = {};
+      const list = Array.isArray(keys) ? keys : [keys];
+      for (const k of list) {
+        const raw = localStorage.getItem(k);
+        try { out[k] = raw ? JSON.parse(raw) : undefined; }
+        catch { out[k] = raw; }
+      }
+      resolve(out);
+    });
+  }
 
-function storageSet(obj) {
-  return new Promise((resolve) => {
-    const local = globalThis.chrome?.storage?.local;
-    if (local) {
-      local.set(obj, resolve);
-      return;
-    }
+  function storageSet(obj) {
+    return new Promise((resolve) => {
+      const local = globalThis.chrome?.storage?.local;
+      if (local) {
+        local.set(obj, resolve);
+        return;
+      }
 
-    // --- fallback localStorage ---
-    for (const [k, v] of Object.entries(obj || {})) {
-      try { localStorage.setItem(k, JSON.stringify(v)); }
-      catch { /* ignore quota */ }
-    }
-    resolve();
-  });
-}
+      // --- fallback localStorage ---
+      for (const [k, v] of Object.entries(obj || {})) {
+        try { localStorage.setItem(k, JSON.stringify(v)); }
+        catch { /* ignore quota */ }
+      }
+      resolve();
+    });
+  }
 
   // -------------------------
   // 1) Estadísticas: guardar Top1
@@ -157,12 +154,11 @@ function storageSet(obj) {
   // 2) Mensajes: extraer botín real de expediciones
   // -------------------------
   async function captureExpeditionFindsFromMessages() {
-    // ✅ Parser REAL de la página de mensajes (category=15)
-    // Guarda:
-    // - STORAGE_KEYS.EXPO: array de mensajes parseados (por id)
-    // - STORAGE_KEYS.EXPO_STATS: resumen + últimas 24h
-
+    // ✅ Solo en mensajes
     if (!isMessagesPage()) return { added: 0, total: 0 };
+
+    // ✅ SOLO expediciones reales: category=15 (según tu HTML)
+    if (String(category || "") !== "15") return { added: 0, total: 0 };
 
     const parseMessageDate = (s) => {
       if (!s) return null;
@@ -235,13 +231,24 @@ function storageSet(obj) {
     for (const el of messageItems) {
       const idMatch = (el.id || "").match(/^message_(\d+)/);
       if (!idMatch) continue;
+
       const msgId = idMatch[1];
       if (knownIds.has(String(msgId))) continue;
 
+      // ✅ Según tu HTML: el "tipo/categoría" está en .message-actions span (texto azul)
+      const typeLabel = el.querySelector(".message-actions span")?.textContent?.trim() || "";
+      if (typeLabel !== "Informes de expediciones") continue;
+
+      // ✅ Según tu HTML: el asunto real del mensaje es .message-subject
+      const subject = el.querySelector(".message-subject")?.textContent?.trim() || "";
+      if (subject !== "Reporte de expedición") continue;
+
       const dateStr = el.querySelector(".message-date")?.textContent?.trim() || "";
       const msgDate = parseMessageDate(dateStr);
+
       const contentEl = el.querySelector(".message-content");
       const contentText = contentEl ? contentEl.innerText : "";
+
       const loot1 = extractLootFromText(contentText);
       const loot2 = extractLootFromBattleReportNode(contentEl);
       const ships = extractShipsFromText(contentText);
@@ -250,8 +257,13 @@ function storageSet(obj) {
         id: String(msgId),
         ts: msgDate ? msgDate.getTime() : Date.now(),
         date: dateStr,
-        subject: el.querySelector(".message-subject")?.textContent?.trim() || "",
-        loot: { metal: loot1.metal + loot2.metal, crystal: loot1.crystal + loot2.crystal, deut: loot1.deut + loot2.deut },
+        type: typeLabel,     // ✅ guardo también el tipo para depurar
+        subject: subject,
+        loot: {
+          metal: loot1.metal + loot2.metal,
+          crystal: loot1.crystal + loot2.crystal,
+          deut: loot1.deut + loot2.deut
+        },
         ships
       };
 
@@ -561,9 +573,7 @@ function storageSet(obj) {
     }
   }
 
-
-  
-function fillFleetToCap() {
+  function fillFleetToCap() {
     const live = getLiveExpInfo();
     const cap = live.cap;
     if (!Number.isFinite(cap) || cap <= 0) return;
@@ -575,54 +585,53 @@ function fillFleetToCap() {
     const probe = ships.find(s => s.shipId === 210);
     let addedProbe = false;
     if (probe && (probe.avail > probe.cur)) {
-        probe.input.value = probe.cur + 1;
-        triggerInput(probe.input);
-        addedProbe = true;
+      probe.input.value = probe.cur + 1;
+      triggerInput(probe.input);
+      addedProbe = true;
     }
 
     // Preferir cargos primero: Gran Carguero (203) y luego Pequeño (202)
     const PREFERRED_ORDER = [203, 202];
     ships.sort((a, b) => {
-        const ia = PREFERRED_ORDER.indexOf(a.shipId);
-        const ib = PREFERRED_ORDER.indexOf(b.shipId);
+      const ia = PREFERRED_ORDER.indexOf(a.shipId);
+      const ib = PREFERRED_ORDER.indexOf(b.shipId);
 
-        const pa = ia === -1 ? 999 : ia;
-        const pb = ib === -1 ? 999 : ib;
+      const pa = ia === -1 ? 999 : ia;
+      const pb = ib === -1 ? 999 : ib;
 
-        if (pa !== pb) return pa - pb;
-        return b.exp - a.exp;
+      if (pa !== pb) return pa - pb;
+      return b.exp - a.exp;
     });
 
     let curExp = Number.isFinite(live.cur) ? live.cur : 0;
 
     // Si hemos añadido sonda, su exp cuenta para el cap
     if (addedProbe && probe) {
-        curExp += probe.exp;
+      curExp += probe.exp;
     }
 
     let remaining = cap - curExp;
     if (remaining <= 0) return;
 
     for (const s of ships) {
-        if (remaining <= 0) break;
+      if (remaining <= 0) break;
 
-        // evita volver a tocar la sonda (ya hemos puesto 1)
-        if (s.shipId === 210) continue;
+      // evita volver a tocar la sonda (ya hemos puesto 1)
+      if (s.shipId === 210) continue;
 
-        const free = Math.max(0, s.avail - s.cur);
-        if (!free) continue;
+      const free = Math.max(0, s.avail - s.cur);
+      if (!free) continue;
 
-        const take = Math.min(free, Math.floor(remaining / s.exp));
-        if (take <= 0) continue;
+      const take = Math.min(free, Math.floor(remaining / s.exp));
+      if (take <= 0) continue;
 
-        const next = s.cur + take;
-        s.input.value = next;
-        triggerInput(s.input);
+      const next = s.cur + take;
+      s.input.value = next;
+      triggerInput(s.input);
 
-        remaining -= take * s.exp;
+      remaining -= take * s.exp;
     }
-}
-
+  }
 
   // -------------------------
   // Main
