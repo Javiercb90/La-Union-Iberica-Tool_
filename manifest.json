@@ -95,6 +95,7 @@
       "js/unionIberica/control_alianza.js",
       "js/unionIberica/control_estadisticas.js",
       "js/unionIberica/expediciones.js",
+      "js/unionIberica/marketplace.js",
       "js/unionIberica/control.js",
       "js/unionIberica/main.js",
       "js/unionIberica/init.js"
