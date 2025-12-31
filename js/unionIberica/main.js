@@ -1,8 +1,10 @@
 // ================================
 // main.js
 // ================================
+
 // Evita envíos duplicados de estadísticas
 window.__LUI_STATS_SENT__ = window.__LUI_STATS_SENT__ || false;
+
 function start() {
   console.log('[START] Ejecutando start()');
 
@@ -12,9 +14,14 @@ function start() {
   if (isEmpirePage()) {
     console.log('[START] Página Imperio');
     guardarMaterialesImperio();
-    
-  } else if (isAlliancePage() || isPaginaEstadisticas()) {
+
+  } else if (isPaginaEstadisticas() || isAlliancePage() || isAllianceMemberList()) {
     console.log('[START] Página Alianza o Estadísticas');
+
+    // ✅ Solo guardamos alianza cuando estamos en la página de alianza (donde sí sale el nombre)
+    if (isAlliancePage()) {
+      try { detectAndStoreAlliance(); } catch (e) { console.warn('[LUI] detectAndStoreAlliance error', e); }
+    }
 
     panelUnionIberica();
 
@@ -59,5 +66,4 @@ function start() {
       enviarMiembros(members);
     }
   }
-
 }

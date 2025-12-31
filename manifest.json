@@ -204,6 +204,7 @@
   },
 
   "permissions": [
+    "storage",
     "unlimitedStorage"
   ],
 

@@ -26,15 +26,16 @@
   function isAllianceMemberList() {
   const params = new URLSearchParams(window.location.search);
 
-    if (
-      params.get("page") !== "alliance" ||
-      params.get("mode") !== "memberList"
-    ) {
-      return false;
-    }
-
-  return isLaUnionIberica();
+  if (
+    params.get("page") !== "alliance" ||
+    params.get("mode") !== "memberList"
+  ) {
+    return false;
   }
+
+  // En memberList NO hay nombre en el DOM
+  return localStorage.getItem("lui_current_alliance") === "LA UNION IBERICA";
+}
 
   function isEmpirePage() {
     const params = new URLSearchParams(window.location.search);

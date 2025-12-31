@@ -96,3 +96,29 @@ function aplicarEstilosResponsivos(panel) {
 function limpiarNumero(txt) {
   return Number(txt.replace(/\./g, '').replace(',', '.'));
 }
+
+const ALLY_KEY = "lui_current_alliance";
+const ALLY_NAME = "LA UNION IBERICA";
+
+function detectAndStoreAlliance() {
+  if (!isLaUnionIberica()) return;
+
+  // Guardado síncrono para poder leerlo luego en memberList
+  try { localStorage.setItem(ALLY_KEY, ALLY_NAME); } catch {}
+
+  // Opcional: también en chrome.storage (no lo usamos para decidir en memberList)
+  try {
+    if (chrome?.storage?.local) chrome.storage.local.set({ [ALLY_KEY]: ALLY_NAME });
+  } catch {}
+}
+
+function isAllianceMemberList() {
+  const params = new URLSearchParams(window.location.search);
+
+  if (params.get("page") !== "alliance" || params.get("mode") !== "memberList") {
+    return false;
+  }
+
+  // En memberList NO existe el nombre en el DOM, así que usamos lo guardado
+  return localStorage.getItem(ALLY_KEY) === ALLY_NAME;
+}
